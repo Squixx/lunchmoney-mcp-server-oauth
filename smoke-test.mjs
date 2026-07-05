@@ -151,6 +151,29 @@ try {
   const tools = await r.json();
   check("tools/list returns tools", r.status === 200 && (tools.result?.tools?.length ?? 0) > 0);
 
+  // Null-argument sanitizer: a client sending an unset optional as `null`
+  // must not trip upstream validation. (Dummy API token, so the call fails
+  // downstream on execution — but it must get PAST input validation, i.e. no
+  // -32602 "Expected string, received null".) See sanitize.mjs.
+  // Upstream surfaces zod failures both ways depending on path; collapse
+  // top-level error + tool-result content into one searchable string.
+  const errText = (j) =>
+    (j.error?.message ?? "") + " " + (j.result?.content ?? []).map((c) => c.text ?? "").join(" ");
+  const callTool = async (name, args) => {
+    const resp = await mcp({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name, arguments: args } }, tok2.access_token);
+    return resp.json();
+  };
+  const nullDate = await callTool("get_transactions", { start_date: "2026-01-01", end_date: null });
+  check(
+    "get_transactions with end_date:null clears input validation",
+    !/Input validation error/i.test(errText(nullDate)),
+    errText(nullDate).slice(0, 200),
+  );
+  // Control: the sanitizer only removes schema-forbidden nulls — genuinely
+  // invalid values must still be rejected, proving validation isn't disabled.
+  const badDate = await callTool("get_transactions", { start_date: "not-a-date" });
+  check("get_transactions with malformed start_date still rejected", /Input validation error/i.test(errText(badDate)), errText(badDate).slice(0, 200));
+
   r = await mcp(null, tok2.access_token, "GET");
   check("GET /mcp → 405 (stateless)", r.status === 405);
 

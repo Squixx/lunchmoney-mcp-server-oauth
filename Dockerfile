@@ -36,7 +36,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN corepack install && \
     pnpm install --frozen-lockfile --prod --reporter=append-only
 
-COPY server.mjs oauth.mjs ./
+COPY server.mjs oauth.mjs sanitize.mjs ./
 
 # ---- runtime ----------------------------------------------------------------
 # Pin by digest because :nonroot is rolling.
@@ -46,7 +46,7 @@ WORKDIR /app
 
 # Drop in only what the runtime needs. No pnpm, no shell, no apt-get.
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/server.mjs /app/oauth.mjs ./
+COPY --from=builder /app/server.mjs /app/oauth.mjs /app/sanitize.mjs ./
 COPY --from=builder /app/package.json ./package.json
 
 ENV NODE_ENV=production \
