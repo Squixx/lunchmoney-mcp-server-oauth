@@ -86,6 +86,43 @@ check("drops $ref-forbidden null updated_since", () => {
   assert.deepEqual(body.params.arguments, {});
 });
 
+// --- the string-sentinel variant of the same bug ---
+check('drops pattern-forbidden string "null" end_date, keeps start_date', () => {
+  const body = call("get_transactions", { start_date: "2026-01-01", end_date: "null" });
+  sanitizeRpcBody(body, schemas);
+  assert.deepEqual(body.params.arguments, { start_date: "2026-01-01" });
+});
+
+check('drops string "undefined" on a pattern-constrained date field', () => {
+  const body = call("get_transactions", { start_date: "undefined" });
+  sanitizeRpcBody(body, schemas);
+  assert.deepEqual(body.params.arguments, {});
+});
+
+check('drops string "null" on a numeric field (no string type)', () => {
+  const body = call("get_transactions", { limit: "null" });
+  sanitizeRpcBody(body, schemas);
+  assert.deepEqual(body.params.arguments, {});
+});
+
+check('keeps string "null" on an unconstrained string field (created_since)', () => {
+  const body = call("get_transactions", { created_since: "null" });
+  sanitizeRpcBody(body, schemas);
+  assert.deepEqual(body.params.arguments, { created_since: "null" });
+});
+
+check('keeps literal "null" payee — free-form string, could be a real value', () => {
+  const body = call("update_transaction", { transaction_id: 7, update: { payee: "null" } });
+  sanitizeRpcBody(body, schemas);
+  assert.deepEqual(body.params.arguments, { transaction_id: 7, update: { payee: "null" } });
+});
+
+check('keeps string "null" on a nullable field — ambiguous, left for upstream', () => {
+  const body = call("update_transaction", { transaction_id: 7, update: { category_id: "null" } });
+  sanitizeRpcBody(body, schemas);
+  assert.deepEqual(body.params.arguments, { transaction_id: 7, update: { category_id: "null" } });
+});
+
 // --- must NOT break intentional clears ---
 check("keeps nullable category_id (union type) — clear field", () => {
   const body = call("update_transaction", { transaction_id: 7, update: { category_id: null, payee: "x" } });
