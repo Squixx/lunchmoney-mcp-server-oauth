@@ -9,3 +9,4 @@ LICENSE
 docker-compose.example.yml
 .github
 renovate.json
+CONTRIBUTING.md
