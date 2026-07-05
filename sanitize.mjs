@@ -16,6 +16,14 @@
 // null, and keep it everywhere the schema permits it. Driven entirely by the
 // schemas the upstream server itself advertises (see loadToolSchemas in
 // server.mjs), so it stays correct as tools change.
+//
+// The same accident also shows up as the *string* "null" (or "undefined") when
+// a caller templates an unset optional into JSON text, e.g.
+// get_transactions({ end_date: "null" }). We prune those too, but only where
+// the schema both forbids real null AND cannot accept the literal string —
+// a date field with a `pattern`, a numeric field, an enum, etc. On a
+// free-form string field (payee, notes) "null" is left untouched, because
+// there it may well be a legitimate value.
 
 const isPlainObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 
@@ -57,6 +65,49 @@ function permitsNull(schema, root, seen = new Set()) {
   return false;
 }
 
+// Could this schema node accept `str` as a valid string value? Used to decide
+// whether a stray "null"/"undefined" string is a real value or a templated
+// unset optional. Conservative: when we can't prove the string is rejected we
+// return true (leave the value alone). We only return false when the schema
+// clearly can't accept it — a non-string type, a failing pattern/format, an
+// enum/const that excludes it, or a length bound it violates.
+function permitsStringValue(schema, str, root, seen = new Set()) {
+  if (!schema || typeof schema !== "object") return true;
+  if (schema.$ref) {
+    if (seen.has(schema.$ref)) return true; // cycle guard
+    seen.add(schema.$ref);
+    return permitsStringValue(resolveRef(schema.$ref, root), str, root, seen);
+  }
+  if (Array.isArray(schema.enum)) return schema.enum.includes(str);
+  if ("const" in schema) return schema.const === str;
+  for (const key of ["anyOf", "oneOf"]) {
+    if (Array.isArray(schema[key])) {
+      return schema[key].some((s) => permitsStringValue(s, str, root, seen));
+    }
+  }
+
+  const types = Array.isArray(schema.type) ? schema.type : schema.type ? [schema.type] : null;
+  if (!types) return true; // untyped — can't prove rejection
+  if (!types.includes("string")) return false; // a string can't satisfy a non-string type
+
+  // It's (or may be) a string. Only a concrete constraint lets us reject it;
+  // an unconstrained string field is free-form, where "null" could be real.
+  if (typeof schema.format === "string" && schema.format) return false;
+  if (typeof schema.pattern === "string") {
+    try {
+      if (!new RegExp(schema.pattern).test(str)) return false;
+    } catch {
+      /* unparseable pattern — don't rely on it */
+    }
+  }
+  if (Number.isFinite(schema.maxLength) && str.length > schema.maxLength) return false;
+  if (Number.isFinite(schema.minLength) && str.length < schema.minLength) return false;
+  return true;
+}
+
+// Sentinel strings a caller may emit for an unset optional when templating JSON.
+const SENTINEL_STRINGS = new Set(["null", "undefined"]);
+
 // Recursively remove schema-forbidden nulls from `value` in place, walking the
 // schema alongside it so nested objects (update: {...}) and arrays
 // (transactions: [{...}]) are handled too. Returns `value`.
@@ -68,10 +119,18 @@ function pruneValue(value, schema, root) {
     for (const key of Object.keys(value)) {
       const propSchema = s.properties[key];
       if (!propSchema) continue; // unknown prop — leave it for upstream to judge
-      if (value[key] === null) {
+      const v = value[key];
+      if (v === null) {
         if (!permitsNull(propSchema, root)) delete value[key];
+      } else if (typeof v === "string" && SENTINEL_STRINGS.has(v)) {
+        // Templated unset optional: drop only where the schema forbids real
+        // null AND can't accept this literal string. Never on a free-form
+        // string, where "null" may be a legitimate value.
+        if (!permitsNull(propSchema, root) && !permitsStringValue(propSchema, v, root)) {
+          delete value[key];
+        }
       } else {
-        pruneValue(value[key], propSchema, root);
+        pruneValue(v, propSchema, root);
       }
     }
     return value;
