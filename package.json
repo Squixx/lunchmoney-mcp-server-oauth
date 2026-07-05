@@ -21,7 +21,7 @@
     "test": "node smoke-test.mjs"
   },
   "dependencies": {
-    "@akutishevsky/lunchmoney-mcp": "2.1.0",
+    "@akutishevsky/lunchmoney-mcp": "2.1.1",
     "@modelcontextprotocol/sdk": "1.29.0",
     "express": "5.2.1"
   }

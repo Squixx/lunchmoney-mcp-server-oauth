@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@akutishevsky/lunchmoney-mcp':
-        specifier: 2.1.0
-        version: 2.1.0
+        specifier: 2.1.1
+        version: 2.1.1
       '@modelcontextprotocol/sdk':
         specifier: 1.29.0
         version: 1.29.0
@@ -20,8 +20,8 @@ importers:
 
 packages:
 
-  '@akutishevsky/lunchmoney-mcp@2.1.0':
-    resolution: {integrity: sha512-CwbCvSNpLtAaBO0lo65j+0g/bw8tVgs1OnGotP6jk8reA15ADITnCs6InY2mK0UTfaScwNQH6F2c1upxxT3/sA==}
+  '@akutishevsky/lunchmoney-mcp@2.1.1':
+    resolution: {integrity: sha512-ukcpJ6fWkgs5owFCNToSeAbA/cybgTO/Q2zCxW8iSK0H7DaCw+awRAR1GhplCCDAEnND74LR+hDX7qeVxnbkcA==}
     hasBin: true
 
   '@hono/node-server@1.19.14':
@@ -393,7 +393,7 @@ packages:
 
 snapshots:
 
-  '@akutishevsky/lunchmoney-mcp@2.1.0':
+  '@akutishevsky/lunchmoney-mcp@2.1.1':
     dependencies:
       '@modelcontextprotocol/sdk': 1.29.0
       '@toon-format/toon': 2.3.0
