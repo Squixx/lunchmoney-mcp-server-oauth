@@ -1,0 +1,44 @@
+---
+# Example deployment. Copy to docker-compose.yml, create a .env next to it:
+#
+#   LUNCHMONEY_API_TOKEN=<from lunchmoney.app -> Settings -> Developers>
+#   LUNCHMONEY_MCP_TOKEN=<openssl rand -base64 48>
+#
+# Then put a TLS-terminating reverse proxy in front (see README — the proxy
+# should forward only /mcp and the OAuth paths, and rate-limit the auth
+# endpoints). The server itself speaks plain HTTP on :3000.
+
+services:
+  lunchmoney-mcp:
+    container_name: lunchmoney-mcp
+    image: ghcr.io/squixx/lunchmoney-mcp:0.2.0
+    restart: unless-stopped
+    environment:
+      - LUNCHMONEY_API_TOKEN=${LUNCHMONEY_API_TOKEN:?set in .env}
+      - MCP_AUTH_TOKEN=${LUNCHMONEY_MCP_TOKEN:?set in .env}
+      # Public URL your reverse proxy serves this under (OAuth issuer):
+      - BASE_URL=https://lm.example.com
+      - PORT=3000
+    # Only expose to your reverse proxy — ideally a shared Docker network
+    # instead of a host port. If you must publish a port, bind it to
+    # localhost so only the local proxy can reach it:
+    ports:
+      - "127.0.0.1:3000:3000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16M,mode=1700
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "/nodejs/bin/node", "-e", "require('http').get('http://127.0.0.1:3000/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M

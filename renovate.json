@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "minimumReleaseAge": "3 days",
+  "packageRules": [
+    {
+      "description": "Distroless runtime is a rolling tag pinned by digest; digest bumps are routine security patches",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["gcr.io/distroless/nodejs22-debian12"],
+      "matchUpdateTypes": ["digest"],
+      "automerge": true
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["node"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    },
+    {
+      "description": "Upstream Lunch Money tools reviewed manually — tool changes alter what an LLM can do to the finances",
+      "matchPackageNames": ["@akutishevsky/lunchmoney-mcp"],
+      "automerge": false
+    }
+  ]
+}

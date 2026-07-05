@@ -1,0 +1,31 @@
+# pnpm config — pnpm 11 prefers `pnpm-workspace.yaml` over `.npmrc` for
+# pnpm-specific options. Read by every pnpm invocation in this directory
+# so a fresh checkout enforces the same install posture in dev, CI, and
+# the Docker build stage.
+
+# Refuse to install a package version published less than 24h ago.
+# Catches typosquats and immediately-yanked malicious releases before
+# they can make it into the lockfile or a build.
+minimumReleaseAge: 1440
+
+# Refuse to run `pnpm <script>` if installed modules don't match the
+# lockfile.
+verifyDepsBeforeRun: error
+
+# No surprises in peer dependency resolution.
+strictPeerDependencies: true
+autoInstallPeers: false
+dedupePeerDependents: true
+
+# Match this project's `engines` field; refuse to install on the wrong
+# Node.
+engineStrict: true
+
+# Flat node_modules layout so the runtime image can be a single
+# distroless copy with no symlink store to chase.
+nodeLinker: hoisted
+
+# Do not execute install / postinstall scripts from any dependency.
+# The lunchmoney-mcp server is pure JS; nothing here needs to compile
+# or run arbitrary code at install time.
+ignoreScripts: true

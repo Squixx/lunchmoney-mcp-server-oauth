@@ -1,0 +1,11 @@
+node_modules
+.git
+.gitignore
+README.md
+.dockerignore
+Dockerfile
+smoke-test.mjs
+LICENSE
+docker-compose.example.yml
+.github
+renovate.json
