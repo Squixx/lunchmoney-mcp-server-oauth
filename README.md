@@ -1,5 +1,11 @@
 # lunchmoney-mcp-server-oauth
 
+[![Latest release](https://img.shields.io/github/v/release/Squixx/lunchmoney-mcp-server-oauth?sort=semver&color=blue)](https://github.com/Squixx/lunchmoney-mcp-server-oauth/releases)
+[![Build](https://img.shields.io/github/actions/workflow/status/Squixx/lunchmoney-mcp-server-oauth/image.yml?branch=main&label=build)](https://github.com/Squixx/lunchmoney-mcp-server-oauth/actions/workflows/image.yml)
+[![Container image](https://img.shields.io/badge/ghcr.io-lunchmoney--mcp-2496ED?logo=docker&logoColor=white)](https://github.com/Squixx/lunchmoney-mcp-server-oauth/pkgs/container/lunchmoney-mcp)
+[![License: MIT](https://img.shields.io/github/license/Squixx/lunchmoney-mcp-server-oauth?color=green)](LICENSE)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 Self-hostable **remote MCP server** for [Lunch Money](https://lunchmoney.app)
 with a **built-in OAuth 2.1 authorization server** — so it works as a
 [claude.ai custom connector](https://claude.com/docs/connectors) on
@@ -202,9 +208,26 @@ pnpm `minimumReleaseAge: 1440` (24 h cool-off on new releases), dependency
 install scripts disabled, Corepack strict pinning (pnpm pinned by sha512),
 `pnpm audit` gating CI, weekly image rebuilds for base-image patches.
 
+## Contributing
+
+Contributions are welcome — issues and pull requests both. This is a small,
+single-purpose project, so the bar is just: keep it self-contained, keep the
+security posture, and keep it honest about its limitations.
+
+- **Found a bug or have an idea?** Open an [issue](https://github.com/Squixx/lunchmoney-mcp-server-oauth/issues).
+- **Sending a PR?** Run `pnpm test` first — it drives the full OAuth flow plus
+  an authenticated MCP round-trip and must pass. CI runs the same checks
+  (`pnpm audit`, smoke test, multi-arch build) on every PR.
+- Dependency and image bumps are handled by Renovate; you don't need to touch
+  versions by hand (see [Versioning & releases](#versioning--releases)).
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the short version of the workflow.
+
 ## Credits
 
 - [@akutishevsky/lunchmoney-mcp](https://github.com/akutishevsky/lunchmoney-mcp) — the actual MCP tool implementations this wraps
 - [Lunch Money](https://lunchmoney.app) — and its [developer API](https://lunchmoney.dev)
 
-MIT — see [LICENSE](LICENSE).
+## License
+
+[MIT](LICENSE) © Squixx. Not affiliated with or endorsed by Lunch Money.
