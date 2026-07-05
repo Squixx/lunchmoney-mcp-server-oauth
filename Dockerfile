@@ -11,7 +11,7 @@
 # change the runtime out from under us. Renovate tracks the digest.
 
 # ---- builder ----------------------------------------------------------------
-FROM node:22.23.1-alpine AS builder
+FROM node:24.18.0-alpine AS builder
 
 # COREPACK_ENABLE_STRICT=1 forces Corepack to refuse any package manager that
 # doesn't match the exact `packageManager` field (incl. its sha512). Without
