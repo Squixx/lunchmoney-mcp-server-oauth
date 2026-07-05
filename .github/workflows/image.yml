@@ -68,6 +68,12 @@ jobs:
         run: |
           node --check server.mjs
           node --check oauth.mjs
+          node --check sanitize.mjs
+
+      - name: Null-sanitizer unit tests
+        # Verifies schema-forbidden nulls are pruned while schema-permitted
+        # nulls (write-tool clear fields) are preserved.
+        run: node sanitize.test.mjs
 
       - name: OAuth + MCP smoke test
         # Boots the real server with dummy credentials and exercises the

@@ -10,3 +10,4 @@ docker-compose.example.yml
 .github
 renovate.json
 CONTRIBUTING.md
+sanitize.test.mjs

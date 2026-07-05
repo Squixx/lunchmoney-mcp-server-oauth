@@ -16,7 +16,10 @@ import express from "express";
 import { createServer } from "@akutishevsky/lunchmoney-mcp/server";
 import { initializeConfig } from "@akutishevsky/lunchmoney-mcp/config";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createOAuth } from "./oauth.mjs";
+import { sanitizeRpcBody } from "./sanitize.mjs";
 
 const PORT = Number(process.env.PORT ?? 3000);
 const { LUNCHMONEY_API_TOKEN, MCP_AUTH_TOKEN, BASE_URL } = process.env;
@@ -38,6 +41,35 @@ if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
 }
 
 initializeConfig(LUNCHMONEY_API_TOKEN);
+
+// Cache each tool's advertised JSON Schema once at boot, by introspecting the
+// upstream server over an in-memory transport pair. Used to prune
+// schema-forbidden nulls from incoming tool-call arguments (see sanitize.mjs
+// for the why). Schemas are static for a given upstream version, so one pass
+// is enough. Fail-safe: if introspection ever throws, we log and carry on with
+// an empty map, which makes sanitizing a no-op (i.e. prior behaviour).
+async function loadToolSchemas() {
+  const introspector = createServer("1.0.0");
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: "schema-introspector", version: "1.0.0" });
+  try {
+    await introspector.connect(serverTransport);
+    await client.connect(clientTransport);
+    const { tools } = await client.listTools();
+    return new Map(tools.map((t) => [t.name, t.inputSchema]));
+  } finally {
+    await client.close().catch(() => {});
+    await introspector.close().catch(() => {});
+  }
+}
+
+let toolSchemas = new Map();
+try {
+  toolSchemas = await loadToolSchemas();
+  console.log(`loaded schemas for ${toolSchemas.size} tools (null-argument sanitizer active)`);
+} catch (err) {
+  console.error("WARN: tool-schema introspection failed; null sanitizer disabled:", err);
+}
 
 const { router: oauthRouter, requireAuth } = createOAuth({
   baseUrl: BASE_URL,
@@ -66,6 +98,10 @@ app.post("/mcp", requireAuth, express.json({ limit: "256kb" }), async (req, res)
     mcpServer.close();
   });
   try {
+    // Strip nulls the tool schema forbids (e.g. an unset optional a client
+    // serialized as `null`), so they don't trip upstream validation. Keeps
+    // nulls the schema allows — those clear fields on write tools.
+    sanitizeRpcBody(req.body, toolSchemas);
     await mcpServer.connect(transport);
     await transport.handleRequest(req, res, req.body);
   } catch (err) {
