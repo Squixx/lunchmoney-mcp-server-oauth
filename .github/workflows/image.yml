@@ -23,6 +23,29 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # full history so the version-bump guard can diff against base
+
+      - name: Require version bump for image-affecting changes
+        # Every change that alters what ships in the image must come with a
+        # package.json version bump, so a new image tag is published and
+        # downstream Renovate pins pick it up. Renovate PRs satisfy this
+        # automatically via bumpVersion (see renovate.json); this guard
+        # catches human PRs. Dockerfile-only changes (base image digests)
+        # are exempt — the weekly rebuild refreshes bases under the same
+        # version tag.
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          changed=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          echo "changed files:"; echo "$changed"
+          if echo "$changed" | grep -qE '^(server\.mjs|oauth\.mjs|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml)$'; then
+            version=$(node -p "require('./package.json').version")
+            if git ls-remote --exit-code --tags origin "v$version" >/dev/null 2>&1; then
+              echo "::error::image-affecting files changed but version $version is already released — bump the version in package.json"
+              exit 1
+            fi
+          fi
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -70,8 +93,10 @@ jobs:
         id: meta
         run: |
           version=$(node -p "require('./package.json').version")
+          upstream=$(node -p "require('./package.json').dependencies['@akutishevsky/lunchmoney-mcp']")
           owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "upstream=$upstream" >> "$GITHUB_OUTPUT"
           echo "owner=$owner" >> "$GITHUB_OUTPUT"
 
       - name: Setup QEMU
@@ -98,6 +123,8 @@ jobs:
           tags: |
             type=raw,value=${{ steps.meta.outputs.version }}
             type=raw,value=latest,enable=${{ github.event_name != 'pull_request' }}
+          labels: |
+            app.lunchmoney-mcp.upstream-version=${{ steps.meta.outputs.upstream }}
 
       - name: Build (and push on non-PR)
         uses: docker/build-push-action@v7
@@ -111,3 +138,34 @@ jobs:
           sbom: ${{ github.event_name != 'pull_request' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Tag + GitHub Release per version, created right after the image for that
+  # version is first published. Idempotent: re-runs (including the weekly
+  # scheduled rebuild, which is excluded anyway) skip if the tag exists.
+  release:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Create release if version is new
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          upstream=$(node -p "require('./package.json').dependencies['@akutishevsky/lunchmoney-mcp']")
+          owner=$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
+          if gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release v$version already exists — nothing to do"
+            exit 0
+          fi
+          gh release create "v$version" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "v$version" \
+            --generate-notes \
+            --notes "Image: \`ghcr.io/$owner/lunchmoney-mcp:$version\` · upstream \`@akutishevsky/lunchmoney-mcp\` $upstream"

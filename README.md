@@ -158,6 +158,33 @@ Honest list — read before exposing your finances to the internet:
   Consider Lunch Money's data sensitivity before enabling write-heavy
   workflows.
 
+## Versioning & releases
+
+Semver, **independent of the upstream tools package** (encoding the upstream
+version in the tag breaks semver tooling — `2.1.0-1` sorts *before* `2.1.0`
+as a prerelease, and four segments aren't semver at all):
+
+| Bump | When |
+|------|------|
+| **major** | Breaking wrapper contract: env var renames, endpoint changes, token-format changes that force reconfiguration |
+| **minor** | `@akutishevsky/lunchmoney-mcp` upgrade (the tool surface Claude sees changed), or new wrapper features |
+| **patch** | Wrapper fixes and other dependency bumps |
+
+Mechanics:
+
+- The image tag **is** the `package.json` version; CI publishes it and
+  creates a matching git tag + GitHub Release on the first build of each
+  version.
+- Renovate PRs bump the version automatically in the same PR
+  (`bumpVersion` in `renovate.json`), so every dependency change publishes
+  a new tag that downstream version pins can track.
+- CI rejects PRs that change image contents without a version bump.
+- The upstream tools version an image carries is exposed as the OCI label
+  `app.lunchmoney-mcp.upstream-version` and stated in each release's notes.
+- The weekly scheduled rebuild republishes the **same** version with fresh
+  base layers (distroless/Alpine security patches) — pull to refresh; no
+  release is created.
+
 ## Development
 
 ```sh

@@ -4,7 +4,19 @@
   "minimumReleaseAge": "3 days",
   "packageRules": [
     {
-      "description": "Distroless runtime is a rolling tag pinned by digest; digest bumps are routine security patches",
+      "description": "Every npm dep change ships in the image, so bump the wrapper version in the same PR — a new image tag gets published and downstream pins (Renovate) pick it up",
+      "matchManagers": ["npm"],
+      "bumpVersion": "patch",
+      "automerge": true
+    },
+    {
+      "description": "Upstream Lunch Money tools: minor bump (the tool surface Claude sees changed) and reviewed manually — tool changes alter what an LLM can do to the finances",
+      "matchPackageNames": ["@akutishevsky/lunchmoney-mcp"],
+      "bumpVersion": "minor",
+      "automerge": false
+    },
+    {
+      "description": "Distroless runtime is a rolling tag pinned by digest; digest bumps are routine security patches. No version bump — the weekly rebuild refreshes bases under the existing tag either way",
       "matchDatasources": ["docker"],
       "matchPackageNames": ["gcr.io/distroless/nodejs22-debian12"],
       "matchUpdateTypes": ["digest"],
@@ -15,11 +27,6 @@
       "matchPackageNames": ["node"],
       "matchUpdateTypes": ["minor", "patch"],
       "automerge": true
-    },
-    {
-      "description": "Upstream Lunch Money tools reviewed manually — tool changes alter what an LLM can do to the finances",
-      "matchPackageNames": ["@akutishevsky/lunchmoney-mcp"],
-      "automerge": false
     }
   ]
 }
