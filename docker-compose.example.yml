@@ -11,7 +11,7 @@
 services:
   lunchmoney-mcp:
     container_name: lunchmoney-mcp
-    image: ghcr.io/squixx/lunchmoney-mcp:0.3.0
+    image: ghcr.io/squixx/lunchmoney-mcp:0.4.0
     restart: unless-stopped
     environment:
       - LUNCHMONEY_API_TOKEN=${LUNCHMONEY_API_TOKEN:?set in .env}
