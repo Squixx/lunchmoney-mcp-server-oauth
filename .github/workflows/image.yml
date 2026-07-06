@@ -111,11 +111,15 @@ jobs:
           # These values come from the PR head on pull_request runs and feed
           # step outputs / image tags — reject anything that isn't a plain
           # semver-ish token so multiline or shell-meta content can't ride along.
-          if ! [[ "$version" =~ ^[0-9A-Za-z.+-]+$ ]]; then
+          # Patterns live in variables: bash tokenizes unquoted < > inside
+          # [[ ]] as operators before the =~ pattern is parsed.
+          version_re='^[0-9A-Za-z.+-]+$'
+          upstream_re='^[0-9A-Za-z.^~<>=* +-]+$'
+          if ! [[ "$version" =~ $version_re ]]; then
             echo "::error::package.json version '$version' is not a valid version token"
             exit 1
           fi
-          if ! [[ "$upstream" =~ ^[0-9A-Za-z.^~<>=* +-]+$ ]]; then
+          if ! [[ "$upstream" =~ $upstream_re ]]; then
             echo "::error::upstream dependency range '$upstream' contains unexpected characters"
             exit 1
           fi
