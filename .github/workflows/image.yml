@@ -23,9 +23,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0  # full history so the version-bump guard can diff against base
+          persist-credentials: false  # no job needs an authenticated git remote afterwards
 
       - name: Require version bump for image-affecting changes
         # Every change that alters what ships in the image must come with a
@@ -38,7 +39,7 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           set -euo pipefail
-          changed=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          changed=$(git diff --name-only "origin/${GITHUB_BASE_REF}...HEAD")
           echo "changed files:"; echo "$changed"
           if echo "$changed" | grep -qE '^(server\.mjs|oauth\.mjs|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml)$'; then
             version=$(node -p "require('./package.json').version")
@@ -49,7 +50,7 @@ jobs:
           fi
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: '24.18.0'
 
@@ -93,31 +94,51 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Read version from package.json
         id: meta
         run: |
+          set -euo pipefail
           version=$(node -p "require('./package.json').version")
           upstream=$(node -p "require('./package.json').dependencies['@akutishevsky/lunchmoney-mcp']")
+          # These values come from the PR head on pull_request runs and feed
+          # step outputs / image tags — reject anything that isn't a plain
+          # semver-ish token so multiline or shell-meta content can't ride along.
+          # Patterns live in variables: bash tokenizes unquoted < > inside
+          # [[ ]] as operators before the =~ pattern is parsed.
+          version_re='^[0-9A-Za-z.+-]+$'
+          upstream_re='^[0-9A-Za-z.^~<>=* +-]+$'
+          if ! [[ "$version" =~ $version_re ]]; then
+            echo "::error::package.json version '$version' is not a valid version token"
+            exit 1
+          fi
+          if ! [[ "$upstream" =~ $upstream_re ]]; then
+            echo "::error::upstream dependency range '$upstream' contains unexpected characters"
+            exit 1
+          fi
           owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "upstream=$upstream" >> "$GITHUB_OUTPUT"
           echo "owner=$owner" >> "$GITHUB_OUTPUT"
 
       - name: Setup QEMU
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4
 
       - name: Setup Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
       # On PRs we only verify the image builds. Login + push are skipped so
       # nothing ever lands in ghcr from an unmerged change.
       - name: Log in to ghcr.io
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v4
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -125,7 +146,7 @@ jobs:
 
       - name: Image metadata
         id: img
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: ghcr.io/${{ steps.meta.outputs.owner }}/lunchmoney-mcp
           tags: |
@@ -135,7 +156,8 @@ jobs:
             app.lunchmoney-mcp.upstream-version=${{ steps.meta.outputs.upstream }}
 
       - name: Build (and push on non-PR)
-        uses: docker/build-push-action@v7
+        id: push
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -159,11 +181,14 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false  # gh uses GH_TOKEN, not the git credential
 
       - name: Create release if version is new
         env:
           GH_TOKEN: ${{ github.token }}
+          IMAGE_DIGEST: ${{ needs.build.outputs.digest }}
         run: |
           set -euo pipefail
           version=$(node -p "require('./package.json').version")
@@ -173,8 +198,13 @@ jobs:
             echo "release v$version already exists — nothing to do"
             exit 0
           fi
+          # Publish the manifest-list digest alongside the tag so consumers
+          # can pin the immutable image, and attach it as a checksums asset.
+          image="ghcr.io/$owner/lunchmoney-mcp"
+          printf '%s  %s:%s\n' "$IMAGE_DIGEST" "$image" "$version" > checksums.txt
           gh release create "v$version" \
             --repo "$GITHUB_REPOSITORY" \
             --title "v$version" \
             --generate-notes \
-            --notes "Image: \`ghcr.io/$owner/lunchmoney-mcp:$version\` · upstream \`@akutishevsky/lunchmoney-mcp\` $upstream"
+            --notes "$(printf 'Image: `%s:%s` · upstream `@akutishevsky/lunchmoney-mcp` %s\n\nPinned (immutable): `%s@%s`' "$image" "$version" "$upstream" "$image" "$IMAGE_DIGEST")" \
+            checksums.txt
