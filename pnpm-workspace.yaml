@@ -29,3 +29,17 @@ nodeLinker: hoisted
 # The lunchmoney-mcp server is pure JS; nothing here needs to compile
 # or run arbitrary code at install time.
 ignoreScripts: true
+
+# Force patched versions of transitively-pulled dependencies that carry
+# published advisories. These are dragged in via @modelcontextprotocol/sdk
+# (and @akutishevsky/lunchmoney-mcp) and cannot be bumped from our direct
+# deps, so pin them here until upstream ships the fixes.
+overrides:
+  # GHSA-v2hh-gcrm-f6hx / GHSA-4c8g-83qw-93j6 — host confusion via literal
+  # backslash authority delimiter and failed IDN canonicalization.
+  # Pulled in through ajv / ajv-formats. Patched in 3.1.4; kept on the
+  # 3.x line ajv expects to avoid a cross-major bump of a validator dep.
+  fast-uri: '>=3.1.4 <4'
+  # GHSA-frvp-7c67-39w9 — path traversal in serve-static on Windows via
+  # encoded backslash (%5C). Pulled in through the SDK. Patched in 2.0.5.
+  '@hono/node-server': '>=2.0.5'
