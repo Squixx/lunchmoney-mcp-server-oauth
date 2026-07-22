@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  fast-uri: '>=3.1.4 <4'
+  fast-uri: '>=3.1.4 <5'
   '@hono/node-server': '>=2.0.5'
 
 importers:
