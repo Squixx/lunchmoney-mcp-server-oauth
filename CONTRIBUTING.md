@@ -47,6 +47,35 @@ LUNCHMONEY_API_TOKEN=<token> MCP_AUTH_TOKEN=$(openssl rand -base64 48) \
    change that alters image contents, CI will tell you if a `package.json`
    version bump is required.
 
+## Dependency updates
+
+Two cooldowns guard dependency bumps, and they have to be read together:
+
+- `renovate.json` — `minimumReleaseAge: "3 days"` (1 day for security
+  updates) decides when Renovate is allowed to *open* a PR.
+- `pnpm-workspace.yaml` — `minimumReleaseAge: 1440` decides when pnpm is
+  allowed to *resolve* a version. It also re-checks every entry of the
+  committed lockfile on `pnpm install --frozen-lockfile`, which is what CI
+  runs.
+
+pnpm's window is the floor. Renovate resolves the lockfile with the same
+settings, so opening an npm PR before that window elapses gets you a
+`package.json` bump with no matching lockfile — Renovate posts an *Artifact
+update problem* comment and CI fails with `ERR_PNPM_OUTDATED_LOCKFILE`. The
+usual way to end up there is ticking a **Pending Status Checks** box on the
+Dependency Dashboard, which skips Renovate's cooldown but not pnpm's.
+
+If you hit it, the fix is to wait out pnpm's day and let Renovate retry, or
+to generate the lockfile yourself once the version has matured:
+
+```sh
+pnpm install --lockfile-only
+```
+
+Do not commit a lockfile produced with the policy disabled
+(`--config.minimumReleaseAge=0`): CI verifies the lockfile against the
+policy independently and will reject it anyway.
+
 ## Reporting security issues
 
 If you find a vulnerability, please open a

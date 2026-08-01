@@ -2,6 +2,10 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
   "minimumReleaseAge": "3 days",
+  "vulnerabilityAlerts": {
+    "description": "Renovate's default for security PRs is minimumReleaseAge: null — no cooldown at all. pnpm has no such exemption: pnpm-workspace.yaml sets minimumReleaseAge: 1440, and it is enforced both when Renovate resolves the lockfile and when CI verifies it, so a zero-cooldown security PR lands as a package.json bump with no matching lockfile and CI that cannot pass. Wait out pnpm's window — and no longer — so security fixes still jump the 3-day queue with a lockfile that installs.",
+    "minimumReleaseAge": "1 day"
+  },
   "packageRules": [
     {
       "description": "Every npm dep change ships in the image, so bump the wrapper version in the same PR — a new image tag gets published and downstream pins (Renovate) pick it up",

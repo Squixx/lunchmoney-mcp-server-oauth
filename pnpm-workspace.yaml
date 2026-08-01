@@ -1,3 +1,13 @@
+# Refuse to resolve — or to verify a committed lockfile containing — any
+# version published less than a day ago, so a compromised release has to
+# survive a day of public scrutiny before it can reach this image.
+#
+# This is the floor every Renovate cooldown has to clear: Renovate resolves
+# the lockfile with these same settings, so any path that opens an npm PR
+# sooner than 1440 minutes after publish produces a package.json bump with
+# no matching lockfile, and CI that cannot pass until the window elapses.
+# See renovate.json — `minimumReleaseAge` (3 days) and the explicit
+# `vulnerabilityAlerts.minimumReleaseAge` (1 day) both sit at or above it.
 minimumReleaseAge: 1440
 
 # Refuse to run `pnpm <script>` if installed modules don't match the
