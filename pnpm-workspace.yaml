@@ -37,11 +37,32 @@ ignoreScripts: true
 # (and @akutishevsky/lunchmoney-mcp) and cannot be bumped from our direct
 # deps, so pin them here until upstream ships the fixes.
 overrides:
-  # GHSA-v2hh-gcrm-f6hx / GHSA-4c8g-83qw-93j6 — host confusion via literal
-  # backslash authority delimiter and failed IDN canonicalization.
-  # Pulled in through ajv / ajv-formats. Patched in 3.1.4; kept on the
-  # 3.x line ajv expects to avoid a cross-major bump of a validator dep.
-  fast-uri: '>=3.1.4 <5'
+  # GHSA-v2hh-gcrm-f6hx / GHSA-4c8g-83qw-93j6 / GHSA-7p8r-x3mc-p8w7 — host
+  # confusion via literal backslash authority delimiter (and a follow-up
+  # bypass of the first fix), plus failed IDN canonicalization.
+  # Pulled in through ajv / ajv-formats. Patched in 3.1.5; kept on the
+  # 3.x line ajv declares (^3.0.1) to avoid a cross-major bump of the
+  # validator that gates every MCP tool call — 4.x is published and would
+  # otherwise win this range.
+  fast-uri: '>=3.1.5 <4'
   # GHSA-frvp-7c67-39w9 — path traversal in serve-static on Windows via
   # encoded backslash (%5C). Pulled in through the SDK. Patched in 2.0.5.
   '@hono/node-server': '>=2.0.5'
+  # GHSA-8j4g-w8fx-2239 — ReDoS in the CORS middleware via
+  # Access-Control-Request-Headers. Pulled in through the SDK (directly and
+  # via @hono/node-server). Patched in 4.12.34; kept on the 4.x line the
+  # SDK's peer range expects.
+  hono: '>=4.12.34 <5'
+  # GHSA-mwp4-54f8-5fhr / GHSA-4xrf-jv44-h6hh / GHSA-22jq-vg5j-6vgg — three
+  # parser flaws (octal-looking octets decoded as decimal, CIDR suffix
+  # suppressing special-use classification, IPv4-mapped/NAT64
+  # misclassification) that each let an address dodge a trust-boundary
+  # check. Pulled in through the SDK's express-rate-limit, which uses it to
+  # classify client IPs. All three are fixed by 10.3.1.
+  ip-address: '>=10.3.1 <11'
+  # GHSA-v422-hmwv-36x6 — an invalid `limit` value silently disables body
+  # size enforcement instead of erroring, so an oversized body is accepted.
+  # A direct dependency of express, whose own range (^2.2.1) already admits
+  # the fix; pinned here as a floor so a lockfile refresh cannot drop back
+  # below it. Patched in 2.3.0.
+  body-parser: '>=2.3.0 <3'
