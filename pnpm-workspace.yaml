@@ -1,13 +1,3 @@
-# Refuse to resolve — or to verify a committed lockfile containing — any
-# version published less than a day ago, so a compromised release has to
-# survive a day of public scrutiny before it can reach this image.
-#
-# This is the floor every Renovate cooldown has to clear: Renovate resolves
-# the lockfile with these same settings, so any path that opens an npm PR
-# sooner than 1440 minutes after publish produces a package.json bump with
-# no matching lockfile, and CI that cannot pass until the window elapses.
-# See renovate.json — `minimumReleaseAge` (3 days) and the explicit
-# `vulnerabilityAlerts.minimumReleaseAge` (1 day) both sit at or above it.
 minimumReleaseAge: 1440
 
 # Refuse to run `pnpm <script>` if installed modules don't match the
@@ -44,7 +34,7 @@ overrides:
   # 3.x line ajv declares (^3.0.1) to avoid a cross-major bump of the
   # validator that gates every MCP tool call — 4.x is published and would
   # otherwise win this range.
-  fast-uri: '>=3.1.5 <4'
+  fast-uri: '>=3.1.5 <5'
   # GHSA-frvp-7c67-39w9 — path traversal in serve-static on Windows via
   # encoded backslash (%5C). Pulled in through the SDK. Patched in 2.0.5.
   '@hono/node-server': '>=2.0.5'
