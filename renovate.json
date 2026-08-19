@@ -1,14 +1,22 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "description": "Automerge is gated on CI: every rule below merges only after the audit job (frozen install, syntax check, sanitizer unit tests, full OAuth + MCP smoke test, pnpm audit) and the multi-arch image build go green on the PR. Anything CI cannot judge — a major, a change to the tool surface the LLM sees — stays manual.",
   "minimumReleaseAge": "3 days",
+  "internalChecksFilter": "strict",
+  "osvVulnerabilityAlerts": true,
   "vulnerabilityAlerts": {
-    "description": "Renovate's default for security PRs is minimumReleaseAge: null — no cooldown at all. pnpm has no such exemption: pnpm-workspace.yaml sets minimumReleaseAge: 1440, and it is enforced both when Renovate resolves the lockfile and when CI verifies it, so a zero-cooldown security PR lands as a package.json bump with no matching lockfile and CI that cannot pass. Wait out pnpm's window — and no longer — so security fixes still jump the 3-day queue with a lockfile that installs.",
-    "minimumReleaseAge": "1 day"
+    "description": "Renovate's default for security PRs is minimumReleaseAge: null — no cooldown at all. pnpm has no such exemption: pnpm-workspace.yaml sets minimumReleaseAge: 1440, and it is enforced both when Renovate resolves the lockfile and when CI verifies it, so a zero-cooldown security PR lands as a package.json bump with no matching lockfile and CI that cannot pass. Wait out pnpm's window — and no longer — so security fixes still jump the 3-day queue with a lockfile that installs. They are not automerged: a CVE fix is exactly the change worth reading, and it publishes an image the moment it lands.",
+    "minimumReleaseAge": "1 day",
+    "automerge": false
   },
+  "automergeType": "pr",
+  "platformAutomerge": true,
+  "automergeStrategy": "squash",
+  "ignoreTests": false,
   "packageRules": [
     {
-      "description": "Every npm dep change ships in the image, so bump the wrapper version in the same PR — a new image tag gets published and downstream pins (Renovate) pick it up",
+      "description": "Every npm dep change ships in the image, so bump the wrapper version in the same PR — a new image tag gets published and downstream pins (Renovate) pick it up. Patch and minor automerge; the smoke test boots the real server and drives the whole OAuth flow, so a dep that breaks it cannot reach main.",
       "matchManagers": ["npm"],
       "bumpVersion": "patch",
       "automerge": true
@@ -27,10 +35,30 @@
       "automerge": true
     },
     {
+      "description": "Builder image. A Node minor or patch is exercised by the same PR build that produces the image, so nothing else is gating it.",
       "matchDatasources": ["docker"],
       "matchPackageNames": ["node"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
       "automerge": true
+    },
+    {
+      "description": "GitHub Actions are pinned to commit SHAs by helpers:pinGitHubActionDigests, and a stale pin is its own supply-chain risk. Grouped so a round of digest bumps is one PR instead of eight, and automerged — the workflow that would break is the one running on the PR.",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "digest", "pinDigest"],
+      "groupName": "github actions",
+      "automerge": true
+    },
+    {
+      "description": "The compose example pins the image this repo publishes, so this update only ever trails a release that already passed CI. It touches no file the version-bump guard watches, so automerging it just keeps the docs honest without a second release.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ghcr.io/squixx/lunchmoney-mcp"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "automerge": true
+    },
+    {
+      "description": "No major ever automerges — not express, not the MCP SDK, not pnpm, not the Node or distroless base. Placed after the automerge rules so it overrides all of them; the npm rule's bumpVersion still applies, so a major arrives as a reviewable PR that already carries its version bump.",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
     }
   ]
 }
