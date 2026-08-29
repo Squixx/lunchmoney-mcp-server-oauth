@@ -40,8 +40,11 @@ LUNCHMONEY_API_TOKEN=<token> MCP_AUTH_TOKEN=$(openssl rand -base64 48) \
 
 1. Fork and branch off `main`.
 2. Make your change; run `pnpm test` and `node --check server.mjs oauth.mjs`.
-3. Open a PR. CI runs the smoke test, `pnpm audit`, and a multi-arch image
-   build on every PR — all must pass.
+3. Open a PR. CI runs the smoke test and `pnpm audit` on every PR, plus a
+   multi-arch image build when the PR touches something that ships in the
+   image (sources, `package.json`, the lockfile, `pnpm-workspace.yaml`,
+   `Dockerfile`, `.dockerignore`, the build workflow) — all must pass. A
+   docs-only PR skips the build, and merging it publishes nothing.
 4. **You don't need to bump the version.** Renovate handles dependency and
    image bumps (and the version bump that goes with them). For a hand-written
    change that alters image contents, CI will tell you if a `package.json`
