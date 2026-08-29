@@ -181,6 +181,12 @@ Mechanics:
 - The image tag **is** the `package.json` version; CI publishes it and
   creates a matching git tag + GitHub Release on the first build of each
   version.
+- Only changes that actually reach the container trigger a build, a ghcr
+  push and a release: the app sources, `package.json`, the lockfile,
+  `pnpm-workspace.yaml`, the `Dockerfile`, `.dockerignore` and the build
+  workflow itself. A push to `main` touching only docs, examples, tests or
+  Renovate config is a no-op — the published image is already correct, so
+  nothing is rebuilt, re-pushed or released.
 - Renovate PRs bump the version automatically in the same PR
   (`bumpVersion` in `renovate.json`), so every dependency change publishes
   a new tag that downstream version pins can track.

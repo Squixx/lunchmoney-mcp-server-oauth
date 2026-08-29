@@ -13,11 +13,85 @@ on:
 permissions:
   contents: read
 
+env:
+  # Everything that ends up inside the image, plus the two files that decide
+  # how it is built and tagged (Dockerfile, this workflow) and what the build
+  # context excludes (.dockerignore). A push that touches none of these
+  # produces a byte-identical image, so it builds, publishes and releases
+  # nothing. Keep in sync with the COPY lines in the Dockerfile.
+  IMAGE_PATHS: '^(Dockerfile|\.dockerignore|server\.mjs|oauth\.mjs|sanitize\.mjs|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|\.github/workflows/image\.yml)$'
+  # The subset that changes the image *contents*, and so must ship under a new
+  # version tag. Dockerfile / .dockerignore / workflow changes are deliberately
+  # excluded: base-image digest bumps ride the weekly rebuild under the same
+  # version.
+  VERSIONED_PATHS: '^(server\.mjs|oauth\.mjs|sanitize\.mjs|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml)$'
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Decides whether this run can change the published image at all. Docs,
+  # examples, CI-unrelated config and test-only edits skip the build, the
+  # ghcr push and the release entirely.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      image: ${{ steps.filter.outputs.image }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0  # need the push's `before` commit / the PR base to diff
+          persist-credentials: false
+
+      - name: Detect image-affecting changes
+        id: filter
+        env:
+          BEFORE: ${{ github.event.before }}
+          FORCED: ${{ github.event.forced }}
+        run: |
+          set -euo pipefail
+          case "$GITHUB_EVENT_NAME" in
+            schedule|workflow_dispatch)
+              # The weekly rebuild exists to pick up base-image patches, and a
+              # manual dispatch is an explicit "build it anyway".
+              echo "$GITHUB_EVENT_NAME run — always builds"
+              echo "image=true" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+            pull_request)
+              range="origin/${GITHUB_BASE_REF}...HEAD"
+              ;;
+            push)
+              # A force-push, a branch's first push, or a `before` that got
+              # garbage-collected leaves nothing sane to diff against — build.
+              if [ "${FORCED:-}" = "true" ] || [ -z "${BEFORE:-}" ] ||
+                 [ "${BEFORE:-}" = "0000000000000000000000000000000000000000" ] ||
+                 ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+                echo "no usable diff base (before=${BEFORE:-unset}, forced=${FORCED:-false}) — building"
+                echo "image=true" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              range="$BEFORE..$GITHUB_SHA"
+              ;;
+            *)
+              echo "unrecognised event $GITHUB_EVENT_NAME — building"
+              echo "image=true" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+          esac
+          changed=$(git diff --name-only "$range")
+          echo "changed files ($range):"; echo "$changed"
+          if echo "$changed" | grep -qE "$IMAGE_PATHS"; then
+            echo "image=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::image-affecting changes detected — building"
+          else
+            echo "image=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::no image-affecting changes — skipping build, push and release"
+          fi
+
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -35,13 +109,13 @@ jobs:
         # automatically via bumpVersion (see renovate.json); this guard
         # catches human PRs. Dockerfile-only changes (base image digests)
         # are exempt — the weekly rebuild refreshes bases under the same
-        # version tag.
+        # version tag. The exact set is $VERSIONED_PATHS, defined above.
         if: github.event_name == 'pull_request'
         run: |
           set -euo pipefail
           changed=$(git diff --name-only "origin/${GITHUB_BASE_REF}...HEAD")
           echo "changed files:"; echo "$changed"
-          if echo "$changed" | grep -qE '^(server\.mjs|oauth\.mjs|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml)$'; then
+          if echo "$changed" | grep -qE "$VERSIONED_PATHS"; then
             version=$(node -p "require('./package.json').version")
             if git ls-remote --exit-code --tags origin "v$version" >/dev/null 2>&1; then
               echo "::error::image-affecting files changed but version $version is already released — bump the version in package.json"
@@ -88,7 +162,10 @@ jobs:
         run: pnpm audit --prod --audit-level=moderate
 
   build:
-    needs: audit
+    needs: [changes, audit]
+    # Nothing that ships in the image changed, so the image that is already
+    # published is still correct — don't rebuild it, don't re-push its tags.
+    if: needs.changes.outputs.image == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -170,8 +247,10 @@ jobs:
           cache-to: type=gha,mode=max
 
   # Tag + GitHub Release per version, created right after the image for that
-  # version is first published. Idempotent: re-runs (including the weekly
-  # scheduled rebuild, which is excluded anyway) skip if the tag exists.
+  # version is first published. Skipped along with `build` when the push
+  # didn't touch the image, so docs-only merges never cut a release.
+  # Idempotent: re-runs (including the weekly scheduled rebuild, which is
+  # excluded anyway) skip if the tag exists.
   release:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: build
