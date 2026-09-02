@@ -34,7 +34,7 @@ overrides:
   # 3.x line ajv declares (^3.0.1) to avoid a cross-major bump of the
   # validator that gates every MCP tool call — 4.x is published and would
   # otherwise win this range.
-  fast-uri: '>=3.1.5 <5'
+  fast-uri: '>=3.1.6 <5'
   # GHSA-frvp-7c67-39w9 — path traversal in serve-static on Windows via
   # encoded backslash (%5C). Pulled in through the SDK. Patched in 2.0.5.
   '@hono/node-server': '>=2.0.5'
@@ -56,3 +56,7 @@ overrides:
   # the fix; pinned here as a floor so a lockfile refresh cannot drop back
   # below it. Patched in 2.3.0.
   body-parser: '>=2.3.0 <3'
+  # GHSA-x5fp-wj9c-mxmx / GHSA-4mjr-xmp4-gh2g — array-limit bypass via
+  # bracket-key comma parsing, and DoS via attacker-controlled isBuffer.
+  # Pulled in through the SDK's express. Patched in 6.16.0.
+  qs: '>=6.16.0'
