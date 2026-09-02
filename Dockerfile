@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.26
+# syntax=docker/dockerfile:1.27
 #
 # Two-stage build:
 #   1. node:alpine builder installs prod deps with pnpm (via Corepack, pinned
