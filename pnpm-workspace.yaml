@@ -38,11 +38,19 @@ overrides:
   # GHSA-frvp-7c67-39w9 — path traversal in serve-static on Windows via
   # encoded backslash (%5C). Pulled in through the SDK. Patched in 2.0.5.
   '@hono/node-server': '>=2.0.5'
-  # GHSA-8j4g-w8fx-2239 — ReDoS in the CORS middleware via
-  # Access-Control-Request-Headers. Pulled in through the SDK (directly and
-  # via @hono/node-server). Patched in 4.12.34; kept on the 4.x line the
-  # SDK's peer range expects.
-  hono: '>=4.12.34 <5'
+  # GHSA-8j4g-w8fx-2239 (ReDoS in CORS middleware), GHSA-gqvv-2mrq-wpjv
+  # (toSSG() path traversal, incomplete fix for CVE-2026-39408),
+  # GHSA-g6gw-c38x-mqfc (unbounded dot-notation nesting in parseBody()
+  # causing memory exhaustion), GHSA-crvj-82cr-hjcx (query parser reads
+  # params after the URL fragment, causing cache-key/proxy
+  # differentials). Pulled in through the SDK (directly and via
+  # @hono/node-server). Patched in 4.13.5; kept on the 4.x line the SDK's
+  # peer range expects.
+  hono: '>=4.13.5 <5'
+  # GHSA-p95v-992w-h6c3 — prototype pollution when decoding untrusted
+  # TOON input. Pulled in through @akutishevsky/lunchmoney-mcp. Patched
+  # in 2.3.1.
+  '@toon-format/toon': '>=2.3.1'
   # GHSA-mwp4-54f8-5fhr / GHSA-4xrf-jv44-h6hh / GHSA-22jq-vg5j-6vgg — three
   # parser flaws (octal-looking octets decoded as decimal, CIDR suffix
   # suppressing special-use classification, IPv4-mapped/NAT64
