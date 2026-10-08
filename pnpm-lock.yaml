@@ -179,8 +179,8 @@ importers:
         specifier: 3.0.0
         version: 3.0.0
       '@modelcontextprotocol/sdk':
-        specifier: 1.32.0
-        version: 1.32.0
+        specifier: 1.32.1
+        version: 1.32.1
       express:
         specifier: 5.2.1
         version: 5.2.1
@@ -197,8 +197,8 @@ packages:
     peerDependencies:
       hono: '>=4.13.5 <5'
 
-  '@modelcontextprotocol/sdk@1.32.0':
-    resolution: {integrity: sha512-8BviX/hK4Gd2eL1KdTwm0gfl4d3wdoErW0Jd00h6nomUAtk6IJk5vwQJc6kfWtJTzN5OEV/lgIiJKI8fiDGAlA==}
+  '@modelcontextprotocol/sdk@1.32.1':
+    resolution: {integrity: sha512-2DdE+SJDtzLEEWzY1ZjY7Q+VcPhcV1KisD3zI4u0XZyktsjHum1mwbMI+JaulUBi2OZk+KJAi2uPXzxichPkdw==}
     engines: {node: '>=18'}
     peerDependencies:
       '@cfworker/json-schema': ^4.1.1
@@ -562,7 +562,7 @@ snapshots:
 
   '@akutishevsky/lunchmoney-mcp@3.0.0':
     dependencies:
-      '@modelcontextprotocol/sdk': 1.32.0
+      '@modelcontextprotocol/sdk': 1.32.1
       '@toon-format/toon': 4.1.1
       zod: 3.25.76
     transitivePeerDependencies:
@@ -573,7 +573,7 @@ snapshots:
     dependencies:
       hono: 4.13.7
 
-  '@modelcontextprotocol/sdk@1.32.0':
+  '@modelcontextprotocol/sdk@1.32.1':
     dependencies:
       '@hono/node-server': 2.0.11(hono@4.13.7)
       ajv: 8.20.0
