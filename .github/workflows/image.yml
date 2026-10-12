@@ -159,7 +159,41 @@ jobs:
         run: node smoke-test.mjs
 
       - name: Audit (moderate+)
-        run: pnpm audit --prod --audit-level=moderate
+        # On main, any moderate+ advisory fails. On a PR, only advisories the
+        # PR itself introduces fail: an advisory published against a package
+        # main already ships is not this PR's doing, and failing on it would
+        # block every unrelated PR (Dockerfile, Actions, docs) until someone
+        # adds an override by hand. Those are fixed by audit-autofix.yml,
+        # which opens its own automerging PR.
+        run: |
+          set -euo pipefail
+          if pnpm audit --prod --audit-level=moderate; then
+            exit 0
+          fi
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
+            exit 1
+          fi
+          # pnpm audit reads the lockfile only, so the base's three dependency
+          # files are enough to audit the base tree without installing it.
+          base=$(mktemp -d)
+          for f in package.json pnpm-lock.yaml pnpm-workspace.yaml; do
+            git show "origin/${GITHUB_BASE_REF}:$f" > "$base/$f" 2>/dev/null || rm -f "$base/$f"
+          done
+          ids() {
+            { pnpm -C "$1" audit --prod --json || true; } | node -e '
+              const r = JSON.parse(require("fs").readFileSync(0, "utf8"));
+              const keep = new Set(["moderate", "high", "critical"]);
+              for (const a of Object.values(r.advisories ?? {}))
+                if (keep.has(a.severity)) console.log(a.github_advisory_id);
+            ' | sort -u
+          }
+          new=$(comm -23 <(ids .) <(ids "$base"))
+          if [ -n "$new" ]; then
+            echo "::error::this PR introduces advisories not present on ${GITHUB_BASE_REF}:"
+            echo "$new"
+            exit 1
+          fi
+          echo "::warning::advisories above already affect ${GITHUB_BASE_REF} — not introduced by this PR; audit-autofix.yml handles them"
 
   build:
     needs: [changes, audit]

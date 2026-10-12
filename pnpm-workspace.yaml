@@ -70,3 +70,7 @@ overrides:
   # bracket-key comma parsing, and DoS via attacker-controlled isBuffer.
   # Pulled in through the SDK's express. Patched in 6.16.0.
   qs: '>=6.16.0'
+  # GHSA-jqcg-44mw-7w3h — IP spoofing: an IPv4-mapped IPv6 client address
+  # matches a trusted IPv4 subnet. A direct dependency of express (also
+  # reached through the SDK and express-rate-limit). Patched in 2.0.8.
+  proxy-addr: '>=2.0.8 <3'
