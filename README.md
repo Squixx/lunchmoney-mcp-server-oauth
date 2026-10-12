@@ -214,6 +214,18 @@ pnpm `minimumReleaseAge: 1440` (24 h cool-off on new releases), dependency
 install scripts disabled, Corepack strict pinning (pnpm pinned by sha512),
 `pnpm audit` gating CI, weekly image rebuilds for base-image patches.
 
+Audit findings are fixed without a human in the loop. On a PR, the audit
+only fails for advisories the PR itself introduces, so a newly published
+advisory against `main` never blocks unrelated PRs. Every 6 hours
+[`audit-autofix.yml`](.github/workflows/audit-autofix.yml) audits `main`; on a
+finding it pins the patched version with a pnpm override, bumps the patch
+version and opens an `autofix/audit` PR with auto-merge, which merges once
+the full CI gate is green. Renovate's own security PRs automerge the same
+way. Setup: an `autofix` environment restricted to `main`, holding an
+`AUTOFIX_TOKEN` secret (fine-grained PAT, this repo only, Contents + Pull
+requests read/write); "Allow auto-merge" enabled; and branch protection on
+`main` requiring the `audit` and `build` checks.
+
 ## Contributing
 
 Contributions are welcome — issues and pull requests both. This is a small,
