@@ -6,11 +6,22 @@ name: Audit autofix
 # enabled. That PR runs the full image.yml gate (frozen install, sanitizer
 # tests, OAuth + MCP smoke test, audit, multi-arch build) and only merges
 # once all required checks are green.
+#
+# The repo's "Allow auto-merge" setting is not something this workflow can
+# rely on (it was off once and every run failed). When GitHub refuses
+# auto-merge, the "Merge when green" step merges the PR itself, and only
+# after image.yml's `audit` and `build` passed on the PR's exact head commit.
+# It runs on every schedule and again whenever image.yml finishes on the
+# autofix branch, so the PR merges minutes after CI goes green.
 
 on:
   schedule:
     - cron: '23 */6 * * *'  # every 6 hours — new advisories land at any time
   workflow_dispatch:
+  workflow_run:
+    workflows: ['Build & publish image']
+    types: [completed]
+    branches: [autofix/audit]
 
 permissions:
   contents: read
@@ -32,18 +43,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # A workflow_run wake only needs the merge step below, which uses
+      # the API and runs no repository code.
       - name: Checkout
+        if: github.event_name != 'workflow_run'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0  # tags, to tell whether the current version is already released
           persist-credentials: false
 
       - name: Setup Node
+        if: github.event_name != 'workflow_run'
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24.22.0'
 
       - name: Enable Corepack
+        if: github.event_name != 'workflow_run'
         env:
           COREPACK_ENABLE_STRICT: '1'
           COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
@@ -53,6 +69,7 @@ jobs:
 
       - name: Audit
         id: audit
+        if: github.event_name != 'workflow_run'
         run: |
           set -euo pipefail
           if pnpm audit --prod --audit-level=moderate; then
@@ -121,16 +138,28 @@ jobs:
           git checkout -B "$BRANCH"
           git add package.json pnpm-lock.yaml pnpm-workspace.yaml
           git commit -m "Fix audit findings (v$VERSION)" -m "$(cat "$RUNNER_TEMP/advisories.md")"
-          # Pushed with the PAT, not GITHUB_TOKEN: pushes made with
-          # GITHUB_TOKEN do not trigger workflows, so CI would never run on
-          # the PR and auto-merge would never fire. The branch is rebuilt
-          # from main on every run, so a force push is expected.
-          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/$BRANCH"
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          # Skip the push when the open branch already carries this exact
+          # fix on top of current main: a fresh commit would restart CI and
+          # the PR could never go green between two scheduled runs.
+          git fetch -q "$remote" "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" 2>/dev/null || true
+          if git rev-parse -q --verify "refs/remotes/origin/$BRANCH" >/dev/null \
+            && [ "$(git rev-parse "origin/$BRANCH^{tree}")" = "$(git rev-parse "HEAD^{tree}")" ] \
+            && [ "$(git rev-parse "origin/$BRANCH^")" = "$(git rev-parse HEAD^)" ]; then
+            echo "$BRANCH already carries this fix on current main — not re-pushing"
+          else
+            # Pushed with the PAT, not GITHUB_TOKEN: pushes made with
+            # GITHUB_TOKEN do not trigger workflows, so CI would never run on
+            # the PR and it could never merge. The branch is rebuilt from
+            # main whenever main or the fix changes, so a force push is
+            # expected.
+            git push --force "$remote" "HEAD:refs/heads/$BRANCH"
+          fi
 
           body=$(printf '%s\n\n%s\n\n%s\n' \
             "Automated fix for \`pnpm audit\` findings on \`main\`:" \
             "$(cat "$RUNNER_TEMP/advisories.md")" \
-            "Each vulnerable package is pinned to its patched release with a pnpm override in \`pnpm-workspace.yaml\`, and the version is bumped to \`$VERSION\` so a new image tag is published. Auto-merge is enabled: this merges once every required check passes.")
+            "Each vulnerable package is pinned to its patched release with a pnpm override in \`pnpm-workspace.yaml\`, and the version is bumped to \`$VERSION\` so a new image tag is published. This merges once \`audit\` and \`build\` pass: through auto-merge when the repo allows it, otherwise the next audit-autofix run merges it.")
           number=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
           if [ -z "$number" ]; then
             gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" \
@@ -144,10 +173,59 @@ jobs:
           # merging immediately when nothing is pending, which would skip CI
           # if branch protection were ever removed. The mutation refuses
           # instead, so this PR can only merge through required checks.
+          # Refused when "Allow auto-merge" is off; "Merge when green" below
+          # covers that case.
           id=$(gh pr view "$number" --repo "$GITHUB_REPOSITORY" --json id --jq .id)
-          gh api graphql -f id="$id" -f query='
+          if ! gh api graphql -f id="$id" -f query='
             mutation($id: ID!) {
               enablePullRequestAutoMerge(input: {pullRequestId: $id, mergeMethod: SQUASH}) {
                 pullRequest { number autoMergeRequest { enabledAt } }
               }
-            }'
+            }'; then
+            echo "::notice::auto-merge unavailable for #$number — it is merged by this workflow once audit and build pass"
+          fi
+
+      - name: Merge when green
+        env:
+          GH_TOKEN: ${{ secrets.AUTOFIX_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::AUTOFIX_TOKEN is not set in the autofix environment"
+            exit 1
+          fi
+          # Same-repo PRs only: a fork can name its branch autofix/audit too.
+          pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --base main --state open \
+            --json number,headRefOid,isCrossRepository,autoMergeRequest \
+            --jq '[.[] | select(.isCrossRepository | not)][0] // empty')
+          if [ -z "$pr" ]; then
+            echo "no open $BRANCH PR — nothing to merge"
+            exit 0
+          fi
+          number=$(jq -r .number <<<"$pr")
+          sha=$(jq -r .headRefOid <<<"$pr")
+          if [ "$(jq -r '.autoMergeRequest != null' <<<"$pr")" = true ]; then
+            echo "#$number has auto-merge enabled — GitHub merges it when checks pass"
+            exit 0
+          fi
+
+          # image.yml's jobs on the exact head commit. GitHub Actions runs
+          # only, so another app cannot satisfy the gate with a same-named
+          # check; the API returns the latest attempt of each.
+          conclusion() {
+            gh api "repos/$GITHUB_REPOSITORY/commits/$sha/check-runs?per_page=100" \
+              --jq "[.check_runs[] | select(.app.slug == \"github-actions\" and .name == \"$1\")][0] | if . == null then \"missing\" elif .status != \"completed\" then \"pending\" else .conclusion end"
+          }
+          audit=$(conclusion audit)
+          build=$(conclusion build)
+          echo "#$number @ ${sha:0:7}: audit=$audit build=$build"
+          if [ "$audit" = success ] && [ "$build" = success ]; then
+            # --match-head-commit: refuse if the branch moved after the
+            # checks above were read.
+            gh pr merge "$number" --repo "$GITHUB_REPOSITORY" --squash --match-head-commit "$sha"
+          elif [ "$audit" = failure ] || [ "$build" = failure ]; then
+            echo "::error::CI failed on autofix PR #$number — needs a human"
+            exit 1
+          else
+            echo "checks not finished on #$number — the next run merges it"
+          fi

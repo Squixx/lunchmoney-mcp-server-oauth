@@ -219,12 +219,15 @@ only fails for advisories the PR itself introduces, so a newly published
 advisory against `main` never blocks unrelated PRs. Every 6 hours
 [`audit-autofix.yml`](.github/workflows/audit-autofix.yml) audits `main`; on a
 finding it pins the patched version with a pnpm override, bumps the patch
-version and opens an `autofix/audit` PR with auto-merge, which merges once
-the full CI gate is green. Renovate's own security PRs automerge the same
-way. Setup: an `autofix` environment restricted to `main`, holding an
-`AUTOFIX_TOKEN` secret (fine-grained PAT, this repo only, Contents + Pull
-requests read/write); "Allow auto-merge" enabled; and branch protection on
-`main` requiring the `audit` and `build` checks.
+version and opens an `autofix/audit` PR, which merges once the full CI gate
+is green: through GitHub auto-merge when the repo allows it, otherwise the
+workflow merges it itself as soon as `audit` and `build` pass on the PR's
+head commit (it re-runs whenever CI finishes on that branch). Renovate's own
+security PRs automerge the same way. Setup: an `autofix` environment
+restricted to `main`, holding an `AUTOFIX_TOKEN` secret (fine-grained PAT,
+this repo only, Contents + Pull requests read/write), and branch protection
+on `main` requiring the `audit` and `build` checks. "Allow auto-merge" is
+optional.
 
 ## Contributing
 
