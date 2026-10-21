@@ -74,3 +74,4 @@ overrides:
   # matches a trusted IPv4 subnet. A direct dependency of express (also
   # reached through the SDK and express-rate-limit). Patched in 2.0.8.
   proxy-addr: '>=2.0.8 <3'
+  hono@>=4.12.4 <4.13.11: ^4.13.11
