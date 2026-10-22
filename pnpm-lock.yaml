@@ -172,6 +172,7 @@ overrides:
   qs: '>=6.16.0'
   proxy-addr: '>=2.0.8 <3'
   hono@>=4.12.4 <4.13.11: ^4.13.11
+  ip-address@<=10.7.3: ^10.7.4
 
 importers:
 
@@ -382,8 +383,8 @@ packages:
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
 
-  ip-address@10.7.3:
-    resolution: {integrity: sha512-A1kdq/tSb5QjvKvAMgIoEvDBIgL7qaqVP/jkvSwYYRZ9iEzvPpopxp2wQfu3SuZRHtpHNxMn8Fs0bS+gf5Xmwg==}
+  ip-address@10.7.4:
+    resolution: {integrity: sha512-DWBMKyeM25D70nrIiTkgQth59/G+naKOTep6huF9j+GmeK3DMD60Zvxg5d5qQnz+38AHgou6ean2LECX+lrKDg==}
     engines: {node: '>= 12'}
 
   ipaddr.js@1.9.1:
@@ -699,7 +700,7 @@ snapshots:
   express-rate-limit@8.5.2(express@5.3.0):
     dependencies:
       express: 5.3.0
-      ip-address: 10.7.3
+      ip-address: 10.7.4
 
   express@5.3.0:
     dependencies:
@@ -797,7 +798,7 @@ snapshots:
 
   inherits@2.0.4: {}
 
-  ip-address@10.7.3: {}
+  ip-address@10.7.4: {}
 
   ipaddr.js@1.9.1: {}
 
