@@ -77,7 +77,7 @@ docker compose up -d
 #    https://lm.example.com/mcp
 ```
 
-The image is multi-arch (amd64/arm64), built on Google's distroless Node 22
+The image is multi-arch (amd64/arm64), built on Google's distroless Node 24 (Debian 13)
 (no shell, no package manager, runs as non-root uid 65532), published by
 [CI](.github/workflows/image.yml) from this repo:
 `ghcr.io/squixx/lunchmoney-mcp`.
@@ -193,9 +193,10 @@ Mechanics:
 - CI rejects PRs that change image contents without a version bump.
 - The upstream tools version an image carries is exposed as the OCI label
   `app.lunchmoney-mcp.upstream-version` and stated in each release's notes.
-- The weekly scheduled rebuild republishes the **same** version with fresh
-  base layers (distroless/Alpine security patches) — pull to refresh; no
-  release is created.
+- The weekly scheduled rebuild republishes the **same** version with a fresh
+  Alpine builder — pull to refresh; no release is created. The distroless
+  runtime is pinned by digest, so its patches (including Node itself) arrive
+  only through Renovate's digest PRs.
 
 ## Development
 

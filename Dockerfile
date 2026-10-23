@@ -3,12 +3,16 @@
 # Two-stage build:
 #   1. node:alpine builder installs prod deps with pnpm (via Corepack, pinned
 #      by sha512 in package.json's "packageManager" field).
-#   2. Google distroless nodejs22 runtime — no shell, no package manager,
+#   2. Google distroless nodejs24 runtime (Debian 13), same Node major as the
+#      builder and CI — no shell, no package manager,
 #      runs as the bundled `nonroot` user (uid 65532). Only Node, our app,
 #      and resolved node_modules ship in the final image.
 #
 # `nonroot` is a rolling tag; we pin by digest so a moved tag can't silently
-# change the runtime out from under us. Renovate tracks the digest.
+# change the runtime out from under us. Renovate tracks the digest — that is
+# the ONLY way the runtime gets Node security fixes: the weekly CI rebuild
+# re-pulls this exact digest. (The old nodejs22 pin sat on Node 22.22.0 for
+# months because Renovate held every digest update; see renovate.json.)
 
 # ---- builder ----------------------------------------------------------------
 FROM node:24.22.1-alpine AS builder
@@ -40,7 +44,7 @@ COPY server.mjs oauth.mjs sanitize.mjs ./
 
 # ---- runtime ----------------------------------------------------------------
 # Pin by digest because :nonroot is rolling.
-FROM gcr.io/distroless/nodejs22-debian12:nonroot@sha256:13593b7570658e8477de39e2f4a1dd25db2f836d68a0ba771251572d23bb4f8e
+FROM gcr.io/distroless/nodejs24-debian13:nonroot@sha256:78f07ef1b5ea71ad7c055df15d0dd8997f2d288f9158623c4d4ae3d765b7d50d
 
 WORKDIR /app
 
