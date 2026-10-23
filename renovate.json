@@ -28,10 +28,11 @@
       "automerge": false
     },
     {
-      "description": "Distroless runtime is a rolling tag pinned by digest; digest bumps are routine security patches. No version bump — the weekly rebuild refreshes bases under the existing tag either way",
+      "description": "Distroless runtime is a rolling tag pinned by digest; digest bumps are routine security patches (they are the only way the runtime Node gets patched — the weekly rebuild re-pulls the pinned digest). gcr.io gives a digest update no release timestamp, and with minimumReleaseAge + internalChecksFilter strict Renovate's default (timestamp-required) holds such an update forever: the nodejs22 pin never moved off Node 22.22.0 and missed CVE-2026-111497. timestamp-optional lets it through; the full CI gate still runs before automerge",
       "matchDatasources": ["docker"],
-      "matchPackageNames": ["gcr.io/distroless/nodejs22-debian12"],
+      "matchPackageNames": ["gcr.io/distroless/nodejs24-debian13"],
       "matchUpdateTypes": ["digest"],
+      "minimumReleaseAgeBehaviour": "timestamp-optional",
       "automerge": true
     },
     {
