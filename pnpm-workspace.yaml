@@ -1,4 +1,11 @@
 minimumReleaseAge: 1440
+# One-off, exact-version exemptions from the 24h cooldown. Each entry names
+# a single published version, so it cannot let a later release skip the
+# wait; drop it once that version is older than the cutoff.
+minimumReleaseAgeExclude:
+  # 2026-10-23: ships together with the distroless Node 24 runtime move
+  # (CVE-2026-111497), which can't publish until the lockfile matches.
+  - '@modelcontextprotocol/sdk@1.32.2'
 
 # Refuse to run `pnpm <script>` if installed modules don't match the
 # lockfile.
