@@ -15,7 +15,7 @@
 # months because Renovate held every digest update; see renovate.json.)
 
 # ---- builder ----------------------------------------------------------------
-FROM node:24.22.1-alpine AS builder
+FROM node:26.12.1-alpine AS builder
 
 # COREPACK_ENABLE_STRICT=1 forces Corepack to refuse any package manager that
 # doesn't match the exact `packageManager` field (incl. its sha512). Without
