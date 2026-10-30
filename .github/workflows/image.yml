@@ -102,6 +102,27 @@ jobs:
           fetch-depth: 0  # full history so the version-bump guard can diff against base
           persist-credentials: false  # no job needs an authenticated git remote afterwards
 
+      - name: Node major must match across builder, runtime and CI
+        # Renovate bumps the node:<ver>-alpine builder and setup-node together,
+        # but the distroless runtime names its major in the image
+        # (nodejs<N>-debian13), so a Node major PR needs that line moved by
+        # hand. Without this guard the image would build on one major and run
+        # on another.
+        run: |
+          set -euo pipefail
+          builder=$(sed -nE 's/^FROM node:([0-9]+)\..*AS builder.*/\1/p' Dockerfile)
+          runtime=$(sed -nE 's#^FROM gcr\.io/distroless/nodejs([0-9]+)-.*#\1#p' Dockerfile)
+          ci=$(sed -nE "s/^ *node-version: '([0-9]+)\..*/\1/p" .github/workflows/*.yml | sort -u)
+          echo "builder=$builder runtime=$runtime ci=$(echo $ci)"
+          if [ -z "$builder" ] || [ -z "$runtime" ] || [ -z "$ci" ]; then
+            echo "::error::could not read a Node major from the Dockerfile or workflows — update this guard"
+            exit 1
+          fi
+          if [ "$(printf '%s\n' "$builder" "$runtime" $ci | sort -u | wc -l)" -ne 1 ]; then
+            echo "::error::Node majors differ (builder $builder, runtime $runtime, CI $(echo $ci)) — move gcr.io/distroless/nodejs${runtime}-debian13 to nodejs${builder}-debian13 and re-pin its digest"
+            exit 1
+          fi
+
       - name: Require version bump for image-affecting changes
         # Every change that alters what ships in the image must come with a
         # package.json version bump, so a new image tag is published and
@@ -126,7 +147,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: '24.22.1'
+          node-version: '26.12.1'
 
       - name: Enable Corepack
         env:

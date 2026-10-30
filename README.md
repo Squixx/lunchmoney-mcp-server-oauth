@@ -77,7 +77,7 @@ docker compose up -d
 #    https://lm.example.com/mcp
 ```
 
-The image is multi-arch (amd64/arm64), built on Google's distroless Node 24 (Debian 13)
+The image is multi-arch (amd64/arm64), built on Google's distroless Node 26 (Debian 13)
 (no shell, no package manager, runs as non-root uid 65532), published by
 [CI](.github/workflows/image.yml) from this repo:
 `ghcr.io/squixx/lunchmoney-mcp`.

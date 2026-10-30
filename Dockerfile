@@ -4,8 +4,8 @@
 #   1. node:alpine builder installs prod deps with pnpm (via Corepack, pinned
 #      by sha512 in package.json's "packageManager" field). Node 25+ no longer
 #      bundles Corepack, so it is installed from npm at a pinned version.
-#   2. Google distroless nodejs24 runtime (Debian 13), same Node major as the
-#      builder and CI — no shell, no package manager,
+#   2. Google distroless nodejs26 runtime (Debian 13), same Node major as the
+#      builder and CI (image.yml enforces this) — no shell, no package manager,
 #      runs as the bundled `nonroot` user (uid 65532). Only Node, our app,
 #      and resolved node_modules ship in the final image.
 #
@@ -16,7 +16,7 @@
 # months because Renovate held every digest update; see renovate.json.)
 
 # ---- builder ----------------------------------------------------------------
-FROM node:24.22.1-alpine AS builder
+FROM node:26.12.1-alpine AS builder
 
 # COREPACK_ENABLE_STRICT=1 forces Corepack to refuse any package manager that
 # doesn't match the exact `packageManager` field (incl. its sha512). Without
@@ -50,7 +50,7 @@ COPY server.mjs oauth.mjs sanitize.mjs ./
 
 # ---- runtime ----------------------------------------------------------------
 # Pin by digest because :nonroot is rolling.
-FROM gcr.io/distroless/nodejs24-debian13:nonroot@sha256:a6c34457f6da4295807e051411c7783739c65b997a324fed14e4fa292615ae91
+FROM gcr.io/distroless/nodejs26-debian13:nonroot@sha256:a51c5d631b90e1b298e17a88a307b77f0b959b47de942d033acce0c96be3fb83
 
 WORKDIR /app
 
