@@ -14,6 +14,16 @@
   "platformAutomerge": true,
   "automergeStrategy": "squash",
   "ignoreTests": false,
+  "customManagers": [
+    {
+      "description": "Corepack is installed from npm (Node 25+ no longer bundles it) at a version pinned in the Dockerfile and the workflows, each marked with a `# renovate:` comment.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/", "/^\\.github/workflows/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+(?:ARG \\w+=|\\w+: ')(?<currentValue>[^'\\s]+)"
+      ]
+    }
+  ],
   "packageRules": [
     {
       "description": "Every npm dep change ships in the image, so bump the wrapper version in the same PR — a new image tag gets published and downstream pins (Renovate) pick it up. Patch and minor automerge; the smoke test boots the real server and drives the whole OAuth flow, so a dep that breaks it cannot reach main.",
