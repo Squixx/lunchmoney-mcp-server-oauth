@@ -40,7 +40,7 @@
     {
       "description": "Distroless runtime is a rolling tag pinned by digest; digest bumps are routine security patches (they are the only way the runtime Node gets patched — the weekly rebuild re-pulls the pinned digest). gcr.io gives a digest update no release timestamp, and with minimumReleaseAge + internalChecksFilter strict Renovate's default (timestamp-required) holds such an update forever: the nodejs22 pin never moved off Node 22.22.0 and missed CVE-2026-111497. timestamp-optional lets it through; the full CI gate still runs before automerge",
       "matchDatasources": ["docker"],
-      "matchPackageNames": ["gcr.io/distroless/nodejs24-debian13"],
+      "matchPackageNames": ["/^gcr\\.io/distroless/nodejs\\d+-debian13$/"],
       "matchUpdateTypes": ["digest"],
       "minimumReleaseAgeBehaviour": "timestamp-optional",
       "automerge": true
@@ -65,6 +65,14 @@
       "matchPackageNames": ["ghcr.io/squixx/lunchmoney-mcp"],
       "matchUpdateTypes": ["minor", "patch", "digest"],
       "automerge": true
+    },
+    {
+      "description": "Node majors: the builder image and setup-node arrive together in one PR (same depName), but the distroless runtime carries the major in its image name (nodejs<N>-debian13), which Renovate cannot rename. image.yml's Node-major guard fails the PR until the runtime matches; the note says how to fix it in the same PR.",
+      "matchDepNames": ["node"],
+      "matchUpdateTypes": ["major"],
+      "prBodyNotes": [
+        "⚠️ **Also move the runtime in this PR.** In the Dockerfile, change `gcr.io/distroless/nodejs<old>-debian13` to `nodejs{{{newMajor}}}-debian13` and re-pin its digest (`docker buildx imagetools inspect gcr.io/distroless/nodejs{{{newMajor}}}-debian13:nonroot`). CI's Node-major guard stays red until builder, CI and runtime all run Node {{{newMajor}}}."
+      ]
     },
     {
       "description": "No major ever automerges — not express, not the MCP SDK, not pnpm, not the Node or distroless base. Placed after the automerge rules so it overrides all of them; the npm rule's bumpVersion still applies, so a major arrives as a reviewable PR that already carries its version bump.",
