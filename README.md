@@ -201,6 +201,7 @@ Mechanics:
 ## Development
 
 ```sh
+npm install -g corepack   # Node 25+ no longer bundles it
 corepack enable
 pnpm install --frozen-lockfile
 pnpm test          # boots a throwaway server, runs the full OAuth dance

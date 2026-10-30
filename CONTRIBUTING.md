@@ -20,6 +20,7 @@ financial data), so changes are held to a few principles:
 ## Development
 
 ```sh
+npm install -g corepack   # Node 25+ no longer bundles it
 corepack enable
 pnpm install --frozen-lockfile
 pnpm test    # full OAuth dance + authenticated MCP initialize/tools/list

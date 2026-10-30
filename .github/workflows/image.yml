@@ -132,7 +132,11 @@ jobs:
         env:
           COREPACK_ENABLE_STRICT: '1'
           COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+          # Node 25+ no longer bundles Corepack; keep in sync with the Dockerfile.
+          # renovate: datasource=npm depName=corepack
+          COREPACK_VERSION: '0.36.0'
         run: |
+          npm install -g --ignore-scripts "corepack@${COREPACK_VERSION}"
           corepack enable
           corepack install
 

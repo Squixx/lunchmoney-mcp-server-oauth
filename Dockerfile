@@ -2,7 +2,8 @@
 #
 # Two-stage build:
 #   1. node:alpine builder installs prod deps with pnpm (via Corepack, pinned
-#      by sha512 in package.json's "packageManager" field).
+#      by sha512 in package.json's "packageManager" field). Node 25+ no longer
+#      bundles Corepack, so it is installed from npm at a pinned version.
 #   2. Google distroless nodejs24 runtime (Debian 13), same Node major as the
 #      builder and CI — no shell, no package manager,
 #      runs as the bundled `nonroot` user (uid 65532). Only Node, our app,
@@ -24,7 +25,12 @@ ENV COREPACK_ENABLE_STRICT=1 \
     COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     NODE_ENV=production
 
-RUN corepack enable
+# Corepack left the Node distribution in v25, so install it explicitly. On
+# older Nodes this replaces the bundled copy with the same pinned version.
+# renovate: datasource=npm depName=corepack
+ARG COREPACK_VERSION=0.36.0
+RUN npm install -g --ignore-scripts "corepack@${COREPACK_VERSION}" && \
+    corepack enable
 
 WORKDIR /app
 
@@ -44,7 +50,7 @@ COPY server.mjs oauth.mjs sanitize.mjs ./
 
 # ---- runtime ----------------------------------------------------------------
 # Pin by digest because :nonroot is rolling.
-FROM gcr.io/distroless/nodejs24-debian13:nonroot@sha256:cb606325b7ec4af55462cb0b424a53b452a5b4a894ffe841fcf1048d216fb9f8
+FROM gcr.io/distroless/nodejs24-debian13:nonroot@sha256:a6c34457f6da4295807e051411c7783739c65b997a324fed14e4fa292615ae91
 
 WORKDIR /app
 
