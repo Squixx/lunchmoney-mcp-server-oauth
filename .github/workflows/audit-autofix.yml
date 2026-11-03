@@ -87,14 +87,18 @@ jobs:
         if: steps.audit.outputs.vulnerable == 'true'
         run: |
           set -euo pipefail
-          { pnpm audit --prod --json || true; } | node -e '
-            const r = JSON.parse(require("fs").readFileSync(0, "utf8"));
-            const keep = new Set(["moderate", "high", "critical"]);
-            for (const a of Object.values(r.advisories ?? {}))
-              if (keep.has(a.severity))
-                console.log(`- **${a.severity}** \`${a.module_name}\` ${a.vulnerable_versions} → ${a.patched_versions}: [${a.github_advisory_id}](${a.url}) ${a.title}`);
-          ' > "$RUNNER_TEMP/advisories.md"
-          cat "$RUNNER_TEMP/advisories.md"
+          # One markdown line per moderate+ advisory in the current tree.
+          advisories() {
+            { pnpm audit --prod --json || true; } | node -e '
+              const r = JSON.parse(require("fs").readFileSync(0, "utf8"));
+              const keep = new Set(["moderate", "high", "critical"]);
+              for (const a of Object.values(r.advisories ?? {}))
+                if (keep.has(a.severity))
+                  console.log(`- **${a.severity}** \`${a.module_name}\` ${a.vulnerable_versions} → ${a.patched_versions}: [${a.github_advisory_id}](${a.url}) ${a.title}`);
+            ' | sort -u
+          }
+          advisories > "$RUNNER_TEMP/found.md"
+          cat "$RUNNER_TEMP/found.md"
 
           # "override" pins only the vulnerable packages; "update" would
           # re-resolve the whole lockfile, which is too broad to automerge.
@@ -106,10 +110,41 @@ jobs:
             echo "ready=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if ! pnpm audit --prod --audit-level=moderate; then
-            echo "::error::advisories remain after --fix (no patched version, or blocked by an override range) — needs a human"
+
+          # An override can be added and still not move the lockfile: when an
+          # older hand-written floor for the same package (e.g. `qs: '>=6.16.0'`)
+          # is already satisfied by the locked, vulnerable version, pnpm keeps
+          # it. Re-resolve just the still-vulnerable packages, everywhere in
+          # the tree, within the override ranges now in place.
+          if ! pnpm audit --prod --audit-level=moderate >/dev/null; then
+            mapfile -t pkgs < <({ pnpm audit --prod --json || true; } | node -e '
+              const r = JSON.parse(require("fs").readFileSync(0, "utf8"));
+              const keep = new Set(["moderate", "high", "critical"]);
+              const s = new Set();
+              for (const a of Object.values(r.advisories ?? {}))
+                if (keep.has(a.severity)) s.add(a.module_name);
+              for (const m of s) console.log(m);
+            ')
+            if [ "${#pkgs[@]}" -gt 0 ]; then
+              echo "re-resolving still-vulnerable packages: ${pkgs[*]}"
+              pnpm update --prod --depth Infinity "${pkgs[@]}" \
+                || echo "::warning::pnpm update ${pkgs[*]} failed — keeping what the overrides alone fixed"
+            fi
+          fi
+
+          # Ship whatever got patched; list the rest for a human instead of
+          # throwing the partial fix away.
+          advisories > "$RUNNER_TEMP/remaining.md"
+          grep -vxFf "$RUNNER_TEMP/remaining.md" "$RUNNER_TEMP/found.md" > "$RUNNER_TEMP/advisories.md" || true
+          if [ -s "$RUNNER_TEMP/remaining.md" ]; then
+            echo "::warning::advisories with no usable patched version remain — needs a human:"
+            cat "$RUNNER_TEMP/remaining.md"
+          fi
+          if [ ! -s "$RUNNER_TEMP/advisories.md" ] || git diff --quiet -- pnpm-lock.yaml; then
+            echo "::error::no advisory could be patched (no patched version, or blocked by an override range) — needs a human"
             exit 1
           fi
+          echo "patched:"; cat "$RUNNER_TEMP/advisories.md"
 
           # Same rule as image.yml's version-bump guard: image contents
           # changed, so ship under a version that is not yet released.
@@ -160,9 +195,14 @@ jobs:
             git push --force "$remote" "HEAD:refs/heads/$BRANCH"
           fi
 
-          body=$(printf '%s\n\n%s\n\n%s\n' \
+          unpatched=""
+          if [ -s "$RUNNER_TEMP/remaining.md" ]; then
+            unpatched=$(printf '**Not patched** (no usable patched version yet — needs a human):\n\n%s\n\n' "$(cat "$RUNNER_TEMP/remaining.md")")$'\n\n'
+          fi
+          body=$(printf '%s\n\n%s\n\n%s%s\n' \
             "Automated fix for \`pnpm audit\` findings on \`main\`:" \
             "$(cat "$RUNNER_TEMP/advisories.md")" \
+            "$unpatched" \
             "Each vulnerable package is pinned to its patched release with a pnpm override in \`pnpm-workspace.yaml\`, and the version is bumped to \`$VERSION\` so a new image tag is published. This merges once \`audit\` and \`build\` pass: through auto-merge when the repo allows it, otherwise the next audit-autofix run merges it.")
           number=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
           if [ -z "$number" ]; then
