@@ -50,7 +50,7 @@ COPY server.mjs oauth.mjs sanitize.mjs ./
 
 # ---- runtime ----------------------------------------------------------------
 # Pin by digest because :nonroot is rolling.
-FROM gcr.io/distroless/nodejs26-debian13:nonroot@sha256:33c86a63859efc2ebd88ea0a355863582ec6f1220d048de62baffb2584e709b3
+FROM gcr.io/distroless/nodejs26-debian13:nonroot@sha256:767ffb7e2ffa9f4280f1af7b99f7f0a1cafb79d0dcc0e0d3aba43843748008a5
 
 WORKDIR /app
 
