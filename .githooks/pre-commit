@@ -1,0 +1,20 @@
+#!/bin/sh
+# Secret scan of what is about to be committed, with Betterleaks (the Gitleaks
+# successor). CI scans the full history with the same tool.
+#
+# Enable once per clone:
+#   git config core.hooksPath .githooks
+#
+# Install betterleaks: brew install betterleaks, or a release binary from
+# https://github.com/betterleaks/betterleaks/releases
+#
+# False positive: add `betterleaks:allow` in a comment on that line.
+# Skip once: git commit --no-verify
+
+set -eu
+
+if command -v betterleaks >/dev/null 2>&1; then
+  betterleaks git --pre-commit --staged --redact --verbose --no-banner --log-level warn . >&2
+else
+  echo "pre-commit: betterleaks not installed, secret scan skipped (CI still runs it)" >&2
+fi

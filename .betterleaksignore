@@ -1,0 +1,6 @@
+# Betterleaks baseline: findings already in git history, one fingerprint per
+# line (commit:file:rule:line). CI scans the full history and fails on anything
+# not listed here. Never add a new secret to this file to get CI green.
+
+# Test fixture: the deliberately wrong consent password in the smoke test.
+01cac1b11e9818f627f9d4c7ab8748c8fe3cfc4b:smoke-test.mjs:generic-password:99

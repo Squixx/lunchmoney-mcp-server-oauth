@@ -22,6 +22,15 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+(?:ARG \\w+=|\\w+: ')(?<currentValue>[^'\\s]+)"
       ]
+    },
+    {
+      "customType": "regex",
+      "description": "Betterleaks release in the secret-scan workflow. Its SHA256 is pinned next to the version and Renovate cannot update that (see the betterleaks package rule).",
+      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      "matchStrings": ["BETTERLEAKS_VERSION: \"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "betterleaks/betterleaks",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.+)$"
     }
   ],
   "packageRules": [
@@ -78,6 +87,12 @@
       "description": "No major ever automerges — not express, not the MCP SDK, not pnpm, not the Node or distroless base. Placed after the automerge rules so it overrides all of them; the npm rule's bumpVersion still applies, so a major arrives as a reviewable PR that already carries its version bump.",
       "matchUpdateTypes": ["major"],
       "automerge": false
+    },
+    {
+      "description": "Betterleaks: never automerge. The workflow pins the release checksum, which Renovate cannot derive, so the scan fails until a human copies it in. A new release can also ship new rules that flag old commits; review those before baselining them in .betterleaksignore.",
+      "matchDepNames": ["betterleaks/betterleaks"],
+      "automerge": false,
+      "prBodyNotes": ["⚠️ **Also update `BETTERLEAKS_SHA256` in this PR**: copy the `betterleaks_{{{newVersion}}}_linux_x64.tar.gz` line from https://github.com/betterleaks/betterleaks/releases/download/v{{{newVersion}}}/checksums.txt. The secret scan fails its checksum check until it matches."]
     }
   ]
 }
