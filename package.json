@@ -1,6 +1,6 @@
 {
   "name": "lunchmoney-mcp-server",
-  "version": "0.7.5",
+  "version": "0.7.6",
   "description": "Self-hostable remote MCP server for Lunch Money with built-in OAuth 2.1 — works with claude.ai custom connectors (mobile/web/desktop).",
   "private": true,
   "type": "module",
@@ -14,7 +14,7 @@
     "node": ">=22.22.0",
     "pnpm": ">=11"
   },
-  "packageManager": "pnpm@12.22.0+sha512.894940a3d9a57dfa6fd373990fb4e41e09c2f2d76d982ed1d75275d39267f988fb4e2d40900cbe9921c68d97c67aa1a1096d276633db248f7b34927ac9ddb7a4",
+  "packageManager": "pnpm@12.23.0+sha512.02da94ffaf133f46074322afe552f90d40b5f71ae259aefbccdacc5085b1d617e98d65e0131f5748b9b67445978ee5055d7d59a473f1eef0d504854fefcd5975",
   "scripts": {
     "start": "node server.mjs",
     "audit": "pnpm audit --audit-level=moderate",
